@@ -5,7 +5,7 @@
 Den byl jasný a vzduch voněl lesem. Já šel k řece, kde již stál u  vody. Ty jsi přišel též a my tři tam stáli v tmě. Když vítr vál, pak se  něco pohnulo a my slyšeli šum. To byl okamžik, kdy čas plynul a já  klid, ty ses usmál a on jen kývl.
 
 // remove fill:red
-#let short-words = regex("(\<\p{Lowercase}{1,3}\>)+ ")
-#show short-words: it => text(fill: red)[#{it.text.match(short-words).captures; ([],)}.join[~]]
+#import "../vlna.typ":apply-vlna
+#show: apply-vlna
 = After
 Den byl jasný a vzduch voněl lesem. Já šel k řece, kde již stál u  vody. Ty jsi přišel též a my tři tam stáli v tmě. Když vítr vál, pak se  něco pohnulo a my slyšeli šum. To byl okamžik, kdy čas plynul a já  klid, ty ses usmál a on jen kývl.
