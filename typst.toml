@@ -1,9 +1,11 @@
 [package]
 name = "vlna"
-version = "0.1.0"
-entrypoint = "vlna.typ"
-authors = ["ShinoYumi"]
+version = "0.2.0"
+entrypoint = "lib.typ"
+authors = ["iamanro"]
 license = "MIT"
-description = "First version of czech vlna from LaTeX. All characters with less than 3 letters are connected to the next word."
-repository = "https://github.com/ShinoYumi/typst-vlna/"
-exclude = ["./examples"]
+description = "Czech non-breaking spaces (vlna): short words, titles before/after a name and common abbreviations — with jump-to-source preserved."
+repository = "https://github.com/iamanro/typst-vlna"
+keywords = ["czech", "typography", "non-breaking space", "vlna", "luavlna"]
+categories = ["utility"]
+exclude = ["examples"]
