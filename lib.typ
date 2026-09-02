@@ -1,4 +1,4 @@
-// vlna 0.3.0 — česká sazba: nezlomitelné mezery („vlna").
+// vlna 0.4.0 — česká sazba: nezlomitelné mezery („vlna").
 // Zachovává „skok do zdroje" (box místo přepisu textu na ~) a pokrývá
 // pravidla ÚJČ (prirucka.ujc.cas.cz/?id=880) i příkazy luavlna.
 //
@@ -204,23 +204,67 @@
 
 // --- Přepínače uprostřed dokumentu -------------------------------------------
 // Obdoba luavlna \preventsingleon/off a \preventsingledebugon/off. Globální
-// show pravidlo nejde zevnitř dokumentu „odstínit", proto stavy: glue() je
+// show pravidlo nejde zevnitř dokumentu „odstínit", proto stav: glue() ho
 // čte a mimo aktivní úsek vrací obsah beze změny.
-#let _vlna-active = state("vlna:active", true)
-#let _vlna-debug = state("vlna:debug", none) // none = řídí parametr debug
-// Čítač potlačení uvnitř raw bloků: kód se typograficky nezpracovává.
-// Čítač (ne bool), aby se po raw bloku obnovil stav bez ohledu na to,
-// kolik jich za sebou následuje.
-#let _vlna-suspend = state("vlna:suspend", 0)
+//
+// Vše v JEDINÉM stavu: čtení stavu je nejdražší část práce na jeden nález
+// (~13 µs) a nálezů je v běžném dokumentu desetitisíce. Tři stavy = tři
+// čtení; jeden slovník = jedno čtení, tedy o třetinu méně režie.
+//   active  — vkládat, či nevkládat (vlna-off/on)
+//   debug   — none = řídí parametr debug (vlna-debug-on/off)
+//   suspend — čítač potlačení uvnitř raw bloků: kód se typograficky
+//             nezpracovává. Čítač (ne bool), aby se stav po raw bloku
+//             obnovil bez ohledu na to, kolik jich je vnořených.
+//   switches — počet přepnutí za celý dokument. Slouží jen k tomu, aby
+//              apply-vlna poznalo, že se vůbec přepíná (samotné `active` se
+//              po vlna-off + vlna-on vrátí na výchozí hodnotu, a tak by se
+//              přepnutí nepoznalo).
+#let _vlna-key = "vlna"
+#let _vlna = state(_vlna-key, (active: true, debug: none, suspend: 0, switches: 0))
+
+// Jeden přepínač: obě jeho povinnosti (změna pole a započtení do `switches`)
+// jsou tak na jediném místě. Pole `suspend` se přes něj ZÁMĚRNĚ nemění: raw
+// bloky se rozpoznávají samy (viz _needs-state a dotaz na `raw`), a tak
+// nesmí zvyšovat `switches`.
+#let _switch(patch) = _vlna.update(s => (..s, ..patch, switches: s.switches + 1))
 
 /// Od tohoto místa nezlomitelné mezery nevkládat.
-#let vlna-off() = _vlna-active.update(false)
+#let vlna-off() = _switch((active: false))
 /// Od tohoto místa vkládání obnovit.
-#let vlna-on() = _vlna-active.update(true)
+#let vlna-on() = _switch((active: true))
 /// Od tohoto místa orámovat slepené bloky (přebíjí parametr debug).
-#let vlna-debug-on() = _vlna-debug.update(true)
+#let vlna-debug-on() = _switch((debug: true))
 /// Od tohoto místa orámování vypnout.
-#let vlna-debug-off() = _vlna-debug.update(false)
+#let vlna-debug-off() = _switch((debug: false))
+
+// Prvek, jímž se přepínač v obsahu pozná: `state.update` nese klíč stavu.
+// Rozpozná se srovnáním s vlastní ukázkou, protože jeho konstruktor není
+// pojmenovaný. Do dokumentu se tak nic navíc nevkládá — dotaz uživatele na
+// `metadata` zůstane bez cizích položek.
+#let _update-func = _switch((:)).func()
+
+// Potřebuje dokument čtení stavu u každého nálezu? Ano jen tehdy, obsahuje-li
+// raw blok nebo přepínač. Prochází se obsah PŘED sazbou: rozhodnutí, jež
+// by padlo až z hotového dokumentu (query), by znamenalo celou sazbu navíc.
+// Průchod je lineární a levný (~0,2 s na 500 stran) a `fields()` pokrývá
+// i obaly (styled, tabulky, figury, poznámky).
+#let _needs-state(c) = {
+  let t = type(c)
+  if t == array {
+    c.any(_needs-state)
+  } else if t != content {
+    false
+  } else {
+    let f = c.func()
+    // Text tvoří většinu uzlů a nic v sobě neskrývá — odmítnout ho hned,
+    // ještě před sestavením slovníku polí, ušetří většinu práce průchodu.
+    if f == text { false } else if f == raw { true } else if f == _update-func {
+      c.at("key", default: none) == _vlna-key
+    } else {
+      c.fields().values().any(_needs-state)
+    }
+  }
+}
 
 // --- Aplikace ----------------------------------------------------------------
 // Každá skupina pravidel ÚJČ (prirucka.ujc.cas.cz/?id=880) má svůj přepínač:
@@ -382,19 +426,38 @@
   }
 
   // box(it) = nezlomitelný blok se zachovanou zdrojovou pozicí glyfů.
-  let glue(color, recheck: none) = it => context {
-    let active = _vlna-active.get() and _vlna-suspend.get() == 0
-    if active and recheck != none {
-      let code = if lang == auto { text.lang } else { lang }
-      let pattern = recheck.at(code, default: none)
-      active = pattern != none and it.text.match(pattern) != none
-    }
-    let dbg = _vlna-debug.get()
-    if dbg == none { dbg = debug }
-    if not active { it } else if dbg {
+  //
+  // Dvě podoby. Rozhoduje `dynamic`, tedy obsah dokumentu (viz _needs-state
+  // a instalace pravidel na konci):
+  //   dynamic: false → jen obal. Žádný context blok, žádné čtení stavu; na
+  //     desetitisících nálezů je čtení stavu nejdražší položka celé sazby.
+  //   dynamic: true  → čtení stavu u každého nálezu (přepínače, raw).
+  // Jazykové sady (`recheck`) potřebují context vždy: sadu vybírá text.lang
+  // v místě nálezu, a ten se bez contextu přečíst nedá.
+  let glue(color, recheck: none, dynamic: true) = {
+    let wrap(it, dbg) = if dbg {
       box(stroke: .5pt + color, outset: 1.5pt, it)
     } else {
       box(it)
+    }
+    if recheck == none and not dynamic {
+      it => wrap(it, debug)
+    } else {
+      it => context {
+        let (active, dbg) = if dynamic {
+          let s = _vlna.get()
+          (s.active and s.suspend == 0, s.debug)
+        } else {
+          (true, none)
+        }
+        if active and recheck != none {
+          let code = if lang == auto { text.lang } else { lang }
+          let pattern = recheck.at(code, default: none)
+          active = pattern != none and it.text.match(pattern) != none
+        }
+        if dbg == none { dbg = debug }
+        if active { wrap(it, dbg) } else { it }
+      }
     }
   }
 
@@ -402,65 +465,73 @@
   // Nález s dřívějším začátkem vyhrává vždy; při shodném začátku vyhrává
   // pravidlo uvedené v tomto poli DŘÍV (obaluje se blíž obsahu). Proto jsou
   // specifické vzory (poměry, data, složené zkratky) před během předpon.
+  //
+  // Pravidla ZÁMĚRNĚ zůstávají samostatná, ač jedno sloučené by text
+  // procházelo jen jednou: samostatná pravidla se vzájemně vnořují, takže
+  // uvnitř bloku „o 1 000 000 Kč" drží další blok „1 000 000". V úzké sazbě,
+  // kde se vnější blok na řádek nevejde, se pak zalomí jen v jeho vnějších
+  // mezerách a členění čísla či datum zůstanou celé. Sloučené pravidlo umí
+  // jen jeden nález, a číslo by se rozpadlo („1 000 | 000").
+  // Vzor, barva ladicího rámečku a případná jazyková sada (jen běh předpon).
+  let rule(pattern, color, recheck: none) = (
+    pattern: pattern,
+    color: color,
+    recheck: recheck,
+  )
   let rules = ()
   if ratios {
-    rules.push((
-      regex(num-any + "(?: : " + num-any + ")+(?: = " + num-any + ")?"),
-      glue(eastern),
-    ))
+    let pattern = num-any + "(?: : " + num-any + ")+(?: = " + num-any + ")?"
+    rules.push(rule(regex(pattern), eastern))
   }
   if dates {
-    rules.push((
-      regex("\\<\\d{1,2}\\. (?:\\d{1,2}\\.|" + month-alt + ")"),
-      glue(orange),
-    ))
+    rules.push(rule(regex("\\<\\d{1,2}\\. (?:\\d{1,2}\\.|" + month-alt + ")"), orange))
   }
   if abbreviations {
     // a. s., s. r. o., mn. č., př. n. l.  |  PS PČR, FF UK, ČSN 01 6910.
     // Velká část je omezena na 2–4 písmena, aby se neslepovaly VERZÁLKOVÉ
     // NADPISY slovo po slovu.
-    rules.push((
+    rules.push(rule(
       regex(
         "(?:\\<(?:\\p{Ll}{1,2}\\. )+\\p{Ll}{1,2}\\."
           + "|\\<\\p{Lu}{2,4}(?: (?:\\p{Lu}{2,4}\\>|\\d+(?: \\d+)*\\>))+)",
       ),
-      glue(maroon),
+      maroon,
     ))
   }
-  if run-pattern != none { rules.push((run-pattern, glue(purple, recheck: recheck))) }
-  if titles { rules.push((after-pattern, glue(blue))) }
+  if run-pattern != none { rules.push(rule(run-pattern, purple, recheck: recheck)) }
+  if titles { rules.push(rule(after-pattern, blue)) }
   if numbers {
     // 50 %, § 23, * 1921 | 10 kg, 19 °C, 1 000 000 Kč | 2 500, 800 11 22 33
     let alts = ("[§#\\*†] " + num-any,)
     if unit-alt != none { alts.push(num-any + " (?:" + unit-alt + ")") }
     alts.push(num-grouped)
-    rules.push((regex("(?:" + alts.join("|") + ")"), glue(green)))
+    rules.push(rule(regex("(?:" + alts.join("|") + ")"), green))
   }
   if number-word {
     // 500 lidí, 5. pluk, II. patro | strana 2, tabulka 3 | Karel IV.
     // První větev řetězí i „Přišlo 500 lidí" (slovo + číslo + slovo).
-    rules.push((
+    rules.push(rule(
       regex(
         "(?:\\<\\p{L}{2,} \\d+\\>\\.?(?: \\p{L}\\S*)?"
           + "|\\<\\d+\\.? \\p{L}\\S*"
           + "|\\<[IVXLCDM]+\\. \\p{L}\\S*"
           + "|\\<\\p{Lu}\\p{L}+ [IVXLCDM]+\\>\\.?)",
       ),
-      glue(red),
+      red,
     ))
   }
   if dashes {
     // „slovo –" drží pomlčku na konci řádku; „1948–1989" se nezalomí vůbec.
-    rules.push((regex("\\S+ ?[–—]\\S*"), glue(olive)))
+    rules.push(rule(regex("\\S+ ?[–—]\\S*"), olive))
   }
 
   let out = doc
   // Raw bloky se nezpracovávají — kód není české souvislé sazby.
   out = {
     show raw: it => {
-      _vlna-suspend.update(n => n + 1)
+      _vlna.update(s => (..s, suspend: s.suspend + 1))
       it
-      _vlna-suspend.update(n => n - 1)
+      _vlna.update(s => (..s, suspend: s.suspend - 1))
     }
     out
   }
@@ -469,7 +540,7 @@
       show link: it => context {
         let plain = _link-text(it.body)
         let broken = if (
-          _vlna-active.get()
+          _vlna.get().active
             and plain != none
             and not plain.contains(_zwsp)
             and (plain.contains("/") or plain.contains("@") or plain.contains("."))
@@ -481,6 +552,24 @@
       out
     }
   }
-  for (pattern, fn) in rules { out = { show pattern: fn; out } }
-  out
+  let install(dynamic) = {
+    let acc = out
+    for r in rules {
+      acc = { show r.pattern: glue(r.color, recheck: r.recheck, dynamic: dynamic); acc }
+    }
+    acc
+  }
+
+  // Přepínače a raw bloky jsou to jediné, co nutí čtení stavu u každého
+  // nálezu; bez nich se lepí bez contextu (na 500 stranách třetina času).
+  // Rozhoduje průchod obsahem PŘED sazbou. Nenajde jen raw vyrobené až za
+  // sazby (uvnitř context bloku či cizího show pravidla) — na to je dotaz na
+  // hotový dokument. Ten ovšem rozhodnutí mění až po prvním průchodu sazbou,
+  // takže se sází dvakrát; proto se používá jen jako záchranná síť tam, kde
+  // průchod obsahem nic nenašel.
+  if _needs-state(doc) {
+    install(true)
+  } else {
+    context install(_vlna.final().switches > 0 or query(raw).len() > 0)
+  }
 }

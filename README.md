@@ -14,7 +14,7 @@ has its own on/off switch.
 ## Usage
 
 ```typ
-#import "@preview/vlna:0.3.0": apply-vlna
+#import "@preview/vlna:0.4.0": apply-vlna
 #show: apply-vlna
 ```
 
@@ -155,7 +155,7 @@ A global `show` rule cannot be cancelled from inside the document, so the
 package provides state-based switches:
 
 ```typ
-#import "@preview/vlna:0.3.0": apply-vlna, vlna-on, vlna-off, vlna-debug-on, vlna-debug-off
+#import "@preview/vlna:0.4.0": apply-vlna, vlna-on, vlna-off, vlna-debug-on, vlna-debug-off
 #show: apply-vlna
 
 Tady se váže. #vlna-off() Tady ne. #vlna-on() A tady zase.
@@ -181,9 +181,36 @@ document. This package instead wraps the **original matched content** in
 `#box(..)`. The box cannot break internally, yet the glyphs keep their
 original source span, so clicking them jumps to your document.
 
-Compile-time cost is roughly 2–2.5× of the bare document and scales
-linearly (measured: a 300-page all-rules-firing document compiles in
-~2.4 s vs. ~1.0 s without the package).
+### Compile-time cost
+
+Every match becomes a `#box`, so the package cannot be free — but it only
+pays for what the document needs. Measured on a 501-page Czech document with
+all rule groups firing (typst 0.15.0, 25 interleaved runs per version, each
+compile pinned to the same 8 cores). Harness, chart and the raw dataset are
+in [`examples/benchmark`](examples/benchmark):
+
+![Compile time p95 per version on a 501-page document: bare 2.84 s, v0.1.1
+8.14 s, v0.2.0 5.10 s, v0.3.0 12.98 s, v0.4.0 8.79 s; with one raw block
+v0.3.0 22.47 s and v0.4.0 20.47 s](examples/benchmark/p95.svg)
+
+| | p95 | p50 | vs. bare document |
+|---|---:|---:|---:|
+| bare document, no package | 2.84 s | 2.82 s | 1.00× |
+| v0.3.0 | 12.98 s | 12.83 s | 4.55× |
+| **v0.4.0** | **8.79 s** | **8.66 s** | **3.07×** |
+| the same document plus one `raw` block — v0.3.0 | 22.47 s | 22.16 s | 7.85× |
+| the same document plus one `raw` block — **v0.4.0** | **20.47 s** | **20.30 s** | **7.19×** |
+
+That is 32% off the compile time, and the package's own overhead above the
+bare document drops from 10.15 s to 5.95 s.
+
+The last two rows are the price of two features. `#vlna-off()`,
+`#vlna-on()`, `#vlna-debug-on()` and skipping `raw` all depend on *where* a
+match sits in the document, which forces a state lookup at every single
+match — and a single code block anywhere in the document is enough to
+require it. A document that uses neither takes the cheap path automatically:
+no configuration, and no detection work for you. Note that `raw` costs both
+versions dearly; 0.4.0 only makes it cheaper, it cannot make it free.
 
 ## Limitations
 
@@ -202,19 +229,23 @@ linearly (measured: a 300-page all-rules-firing document compiles in
 
 ## Implementation status
 
-| # | Feature | 0.1.1 | 0.2.0 | 0.3.0 |
-|---|---------|:-----:|:-----:|:----:|
-| 1 | One-/two-letter words | ✅ (via `~`) | ✅ (box, source-safe) | ✅ configurable |
-| 9 | Abbreviations / titles **before** a name | ⚠️ partial | ✅ | ✅ |
-| — | Titles **after** a name (`Ph.D.`, `CSc.`) | — | ✅ | ✅ |
-| — | Chaining of words / titles | — | ✅ | ✅ |
-| — | Debug visualisation | — | ✅ | ✅ + mid-doc toggle |
-| — | Initials (`M. J. Hegel`), compound `Ch.` | — | — | ✅ |
-| — | Per-language sets, `lang` forcing, on/off | — | — | ✅ |
-| 2–8 | Digit groups, number + symbol/unit, dates, ratios, phone numbers | ❌ | ❌ | ✅ |
-| — | Number + counted noun (`500 lidí`, `strana 2`) | — | — | ✅ opt-in |
-| — | Compound abbreviations (`a. s.`, `ČSN 01 6910`), dashes | — | — | ✅ |
-| — | URL / e-mail break points (ÚJČ, via U+200B) | — | — | ✅ |
+| # | Feature | 0.1.1 | 0.2.0 | 0.3.0 | 0.4.0 |
+|---|---------|:-----:|:-----:|:----:|:----:|
+| 1 | One-/two-letter words | ✅ (via `~`) | ✅ (box, source-safe) | ✅ configurable | ✅ |
+| 9 | Abbreviations / titles **before** a name | ⚠️ partial | ✅ | ✅ | ✅ |
+| — | Titles **after** a name (`Ph.D.`, `CSc.`) | — | ✅ | ✅ | ✅ |
+| — | Chaining of words / titles | — | ✅ | ✅ | ✅ |
+| — | Debug visualisation | — | ✅ | ✅ + mid-doc toggle | ✅ |
+| — | Initials (`M. J. Hegel`), compound `Ch.` | — | — | ✅ | ✅ |
+| — | Per-language sets, `lang` forcing, on/off | — | — | ✅ | ✅ |
+| 2–8 | Digit groups, number + symbol/unit, dates, ratios, phone numbers | ❌ | ❌ | ✅ | ✅ |
+| — | Number + counted noun (`500 lidí`, `strana 2`) | — | — | ✅ opt-in | ✅ opt-in |
+| — | Compound abbreviations (`a. s.`, `ČSN 01 6910`), dashes | — | — | ✅ | ✅ |
+| — | URL / e-mail break points (ÚJČ, via U+200B) | — | — | ✅ | ✅ |
+| — | Compile time on 500 pages (p50) | 7.98 s | 5.01 s | 12.83 s | **8.66 s** |
+
+Compile times are not like-for-like across versions: 0.1.1 and 0.2.0
+implement fewer rules, so they have less work to do and still lose.
 
 ## Changelog
 

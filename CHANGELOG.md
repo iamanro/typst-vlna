@@ -1,5 +1,71 @@
 # Changelog
 
+## [0.4.0] – 2026-09-02
+
+Performance release: identical typography, roughly a third off the compile
+time. Verified on 24 configurations (every rule group, per-language sets,
+links, `raw`, mid-document toggles, nested scopes, and columns from 12 mm to
+120 mm) — every word lands on exactly the same spot as in 0.3.0, debug
+frames included, and a 501-page document renders byte-identical text. No
+public API change.
+
+### Changed
+- **One state instead of three.** Reading state is the single most expensive
+  thing done per match, and there are tens of thousands of matches in a real
+  document; `active`, `debug` and the `raw` suspend counter now live in one
+  dictionary, so a match costs one lookup rather than three.
+- **No state lookup at all when the document does not switch anything.**
+  `#vlna-off()`, `#vlna-on()`, `#vlna-debug-on()`, `#vlna-debug-off()` and
+  skipping `raw` are the only features that depend on *where* a match sits.
+  `apply-vlna` now walks the document content before layout and, if it finds
+  neither a toggle nor a `raw` element, glues without a `context` block at
+  all. A document-level query stays as a safety net for `raw` created during
+  layout (inside `context` or another package's `show` rule). Detection
+  inspects the toggles' own state-update elements, so nothing extra is
+  injected into the document and `query(metadata)` stays clean.
+- `typst compile` on a 501-page all-rules-firing document, 25 interleaved
+  runs pinned to 8 cores: **12.83 s → 8.66 s** at p50 and 12.98 s → 8.79 s
+  at p95, i.e. −32%. At p50 that is 3.07× the bare document, down from
+  4.55×, and the package's own overhead above it drops from 10.01 s to
+  5.84 s (10.15 s → 5.95 s at p95). The same document plus one `raw` block,
+  where the state lookups cannot be avoided: 22.16 s → 20.30 s at p50.
+  Harness, chart and dataset in `examples/benchmark`.
+- **Internals.** The three module-level states (`vlna:active`, `vlna:debug`,
+  `vlna:suspend`) are replaced by one `vlna` state holding
+  `(active, debug, suspend, switches)`. `switches` counts toggle calls, which
+  is what lets the safety-net query notice a toggle even when it was switched
+  off and on again. The four toggle functions share one `_switch` helper, so
+  the two invariants they must keep (patch the field, count the switch) live
+  in one place. `_needs-state` walks the content tree, rejecting `text` nodes
+  before building their field dictionary — the walk costs about 0.2 s on 500
+  pages, against the ~4 s it saves.
+
+### Verified
+- 24 configurations rendered with 0.3.0 and 0.4.0 and compared two ways:
+  every word position from `pdftotext -bbox`, rounded to 1/1000 pt, must be
+  identical, and the page rasters may differ only by antialiasing rounding.
+  The set covers every rule group and switch, `short-words` as a letter
+  string / word array / per-language dictionary, forced `lang`, empty and
+  metacharacter-laden `units`, links in a 24 mm column, `raw` inline and as a
+  block, `raw` produced during layout (inside `context` and inside another
+  package's `show` rule), nested `apply-vlna` scopes, and measures of
+  12, 16, 20, 24, 30 and 120 mm plus a 14 mm table cell.
+- A 501-page document renders byte-identical extracted text (25 678 lines).
+- `examples/stress-test.typ` renders pixel-identical, debug frames included.
+- Reproduce the configuration set with `examples/benchmark/equivalence.py`;
+  the 501-page and stress-test checks above were run by hand. The benchmark
+  dataset is committed as `examples/benchmark/results.json`, and
+  `examples/benchmark/chart.py` redraws `p95.svg` from it.
+
+### Not changed (deliberately)
+- The rule groups remain **seven separate `show` rules**. Merging them into
+  one regex scans the text once and is measurably faster, but a single match
+  cannot nest: separate rules wrap `1 000 000` in its own box *inside* the
+  box around `o 1 000 000 Kč`, so when the outer box does not fit the
+  measure, a narrow column still breaks only at its outer spaces. Merged, a
+  16 mm column broke the number group as `1 000 | 000`. Correct typography
+  wins over the extra speed.
+
 ## [0.3.0] – 2026-07-21
 
 Implements the full ÚJČ line-breaking guideline
