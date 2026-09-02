@@ -20,11 +20,13 @@ cp lib.typ "$VLNA_BENCH_DIR/versions/optimised/"
 # 5740 paragraphs of Czech text where every rule group fires = 501 A4 pages
 python3 examples/benchmark/gen.py 5740 > "$VLNA_BENCH_DIR/body.typ"
 
-# the two `-raw` series: the same document with one raw block appended
+# the two `-raw` series: the same document with one raw block appended.
+# Run this AFTER the drivers below exist in versions/0.3.0 and versions/optimised.
 for v in 0.3.0 optimised; do
   d="$VLNA_BENCH_DIR/versions/$v-raw"
   mkdir -p "$d"
   cp "$VLNA_BENCH_DIR/versions/$v/lib.typ" "$d/"
+  cp "$VLNA_BENCH_DIR/versions/$v/head-on.typ" "$d/"
   { cat "$VLNA_BENCH_DIR/body.typ"; printf '\n`kód`\n'; } > "$d/body.typ"
 done
 ```
@@ -57,7 +59,7 @@ VLNA_OLD_LIB=$VLNA_BENCH_DIR/versions/0.3.0/lib.typ \
   python3 examples/benchmark/equivalence.py
 ```
 
-23 configurations are rendered with both libraries and compared two ways:
+24 configurations are rendered with both libraries and compared two ways:
 every word position from `pdftotext -bbox`, rounded to 1/1000 pt, must be
 identical, and the page rasters may differ only by antialiasing rounding.
 Narrow measures (12–20 mm) are in the set on purpose — that is where a glued
