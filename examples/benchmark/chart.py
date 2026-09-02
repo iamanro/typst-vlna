@@ -2,6 +2,7 @@
 """Bar chart of p95 compile time per vlna version (501-page Czech document)."""
 import json
 import os
+import subprocess
 from pathlib import Path
 
 # Without $VLNA_BENCH_DIR the committed dataset next to this script is used,
@@ -101,6 +102,20 @@ svg.append("</svg>")
 out = ROOT / "p95.svg"
 out.write_text("\n".join(svg))
 print(out)
+
+# A PNG next to the SVG: README images are proxied by GitHub, and the proxy
+# is reliable for raster formats only. typst is already a prerequisite here.
+png = ROOT / "p95.png"
+wrap = ROOT / "p95-wrap.typ"
+wrap.write_text(
+    f'#set page(width: auto, height: auto, margin: 0pt)\n#image("{out.name}")\n'
+)
+subprocess.run(
+    ["typst", "compile", "--format", "png", "--ppi", "192", str(wrap), str(png)],
+    check=True,
+)
+wrap.unlink()
+print(png)
 for lbl, name, _, r in rows:
     print(f"{name:>34}  p95 {r['p95']:6.3f}s  p50 {r['p50']:6.3f}s  "
           f"min {r['min']:6.3f}s  max {r['max']:6.3f}s  n={r['runs']}")

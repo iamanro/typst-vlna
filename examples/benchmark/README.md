@@ -1,8 +1,8 @@
 # Benchmark and equivalence harness
 
 The compile-time figures in the main README come from these four scripts, and
-`p95.svg` is the chart they produce. Everything writes to `$VLNA_BENCH_DIR`
-(default `/tmp/vlna-bench`).
+`p95.svg` (plus the `p95.png` the main README embeds) is the chart they
+produce. Everything writes to `$VLNA_BENCH_DIR` (default `/tmp/vlna-bench`).
 
 ## Set up
 
@@ -40,12 +40,12 @@ without the package), both with `#set text(lang: "cs", size: 10pt)`,
 
 ```sh
 python3 examples/benchmark/bench.py 25 0.1.1 0.2.0 0.3.0 optimised 0.3.0-raw optimised-raw
-python3 examples/benchmark/chart.py   # writes $VLNA_BENCH_DIR/p95.svg
+python3 examples/benchmark/chart.py   # writes p95.svg and p95.png
 ```
 
 The committed figures come from exactly that command. With `$VLNA_BENCH_DIR`
 unset, `chart.py` reads the committed `results.json` beside it and redraws
-the published `p95.svg`.
+the published `p95.svg` and `p95.png`.
 
 `bench.py` runs the versions round-robin, so machine drift hits all of them
 equally, and pins every compile to the same 8 cores with the same thread
