@@ -1,4 +1,4 @@
-// vlna 0.4.0 — česká sazba: nezlomitelné mezery („vlna").
+// vlna 0.4.1 — česká sazba: nezlomitelné mezery („vlna").
 // Zachovává „skok do zdroje" (box místo přepisu textu na ~) a pokrývá
 // pravidla ÚJČ (prirucka.ujc.cas.cz/?id=880) i příkazy luavlna.
 //
@@ -80,6 +80,7 @@
   "aj.", "apod.", "atd.", "atp.", "cca", "č.", "čj.", "kap.", "kupř.",
   "mj.", "např.", "obr.", "odst.", "popř.", "pozn.", "př.", "příp.",
   "resp.", "s.", "str.", "sv.", "tab.", "tj.", "tzv.", "tzn.", "viz", "zvl.",
+  "písm.", "čl.", // právní citace: „odst. 4 písm. a)", „čl. 5"
 )
 
 // --- Tituly ZA jménem --------------------------------------------------------
@@ -298,6 +299,9 @@
 //     na konci řádku); pomlčka bez mezer (1948–1989) se nezalamuje vůbec.
 //   links: do adres v link() vloží mezery nulové šířky na místech, kde ÚJČ
 //     zalomení doporučuje (za lomítkem, před tečkou a spojovníkem, kolem @).
+//   legal: spisové značky (12 Nt 345/2026, I. ÚS 2438/25), č. j., čísla
+//     účtů, 89/2012 Sb., firma s.r.o.; „sp. zn.", „č. j.", „bod", „věty"
+//     se váží k následujícímu. Implicitně vypnuto.
 #let apply-vlna(
   doc,
   // krátká slova
@@ -321,6 +325,8 @@
   dashes: true,
   // webové a e-mailové adresy
   links: true,
+  // právní identifikátory (spisové značky, č. j., účty, s.r.o., Sb.)
+  legal: false,
   // jazyk a ladění
   lang: auto,
   debug: false,
@@ -348,6 +354,26 @@
     "\\<(?:" + list.join("|") + ")\\>"
   }
 
+  // -- právní identifikátory (legal) --
+  // Neoddělitelné jednotky: spisové značky, č. j., nálezy ÚS, čísla účtů,
+  // číslo předpisu se „Sb." a zkratky předpisů, které abbreviations nechytí.
+  let legal-unit = "(?:" + (
+    "\\<\\d+/\\d{4} Sb\\.(?: m\\. s\\.)?", // 89/2012 Sb., 2/1993 Sb. m. s.
+    "\\<\\d{1,3} \\p{Lu}\\p{L}{0,4} \\d+/\\d{2,4}(?:-\\d+)?\\>", // 12 Nt 345/2026, 4 Tdo 123/2025
+    "\\<\\d{1,3} \\p{Lu}{2,4}-\\d+/\\d{2,4}(?:-\\d+)?\\>", // 2 KZV-12/2026
+    "\\<\\p{Lu}{2,4} \\d+/\\d{2,4}(?:-\\d+)?\\>", // VZV 23/2026-22
+    "\\<(?:[IVX]{1,4}|Pl)\\. \\p{Lu}{2} \\d+/\\d{2,4}\\>", // I. ÚS 2438/25, Pl. ÚS 45/04
+    "\\<\\p{Lu}{2,6}-[\\w./-]*\\d(?:[\\w./-]*[\\w/-])?", // KRPA-12345-67/TČ-2026-000089 (bez tečky na konci věty)
+    "\\<\\d{2,}-?\\d*/\\d{4}\\>", // 19-1234567890/0100
+    "\\<(?:zák\\. práce|tr\\. zák\\.)", // o. s. ř., tr. ř., o. z. pokrývá abbreviations
+  ).join("|") + ")"
+  // Právní forma psaná jako v obchodním rejstříku drží u názvu firmy.
+  let legal-form = "\\S+ (?:spol\\. s r\\. ?o\\.|s\\. ?r\\. ?o\\.|v\\. ?o\\. ?s\\.|o\\. ?p\\. ?s\\.|a\\. ?s\\.|k\\. ?s\\.|z\\. ?s\\.|z\\. ?ú\\.)"
+  // Zkratky a slova, jež se váží k následujícímu identifikátoru či slovu.
+  let legal-prefix = "\\<(?:" + alternation(
+    ("sp. zn.", "Sp. zn.", "č. j.", "Č. j.", "ev. č.", "bod", "bodu", "věta", "věty"),
+  ) + ")"
+
   // -- krátká slova, iniciály a tituly: společný běh předpon --
   let short-pattern(spec) = if spec == none { none } else if spec == auto {
     if bind-two-letter-words { short-word } else { "\\<\\p{L}\\>" }
@@ -372,6 +398,7 @@
   // „o 2 500 Kč", „i s. r. o.", „zápas o 5 : 3").
   let target = {
     let alts = ()
+    if legal { alts += (legal-unit, legal-form) }
     if dates { alts.push("\\d{1,2}\\.(?: \\d{1,2}\\.| " + month-alt + ")?") }
     if abbreviations {
       alts.push("(?:\\p{Ll}{1,2}\\. )+\\p{Ll}{1,2}\\.")
@@ -399,6 +426,8 @@
     let alts = ()
     if short != none { alts.push(short) }
     if initial != none { alts.push(initial) }
+    // Před tituly: jinak by „č." z before-list předběhlo „č. j.".
+    if legal { alts.push(legal-prefix) }
     if titles { alts.push("\\<(?:" + alternation(before-list) + ")") }
     if alts.len() == 0 { none } else {
       "(?:(?:" + alts.join("|") + ") )+" + target
@@ -479,6 +508,14 @@
     recheck: recheck,
   )
   let rules = ()
+  if legal {
+    // Jako první: při shodném začátku musí „sp. zn. 12 Nt 345/2026" vyhrát
+    // nad složenou zkratkou „sp. zn." a „VZV 23/2026" nad „VZV 23". Dvě
+    // pravidla, aby se identifikátor uvnitř „č. j. KRPA-…" vnořil jako
+    // vlastní blok a nezlomil se, ani když se celek na řádek nevejde.
+    rules.push(rule(regex(legal-unit + "|" + legal-form), teal))
+    rules.push(rule(regex("(?:" + legal-prefix + " )+" + target), teal))
+  }
   if ratios {
     let pattern = num-any + "(?: : " + num-any + ")+(?: = " + num-any + ")?"
     rules.push(rule(regex(pattern), eastern))

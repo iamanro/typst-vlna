@@ -1,0 +1,19 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: typst-community/setup-typst@v5
+        with:
+          typst-version: 0.15.1
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: python3 tests/breaks.py
+      - run: typst compile --root . examples/stress-test.typ /tmp/stress-test.pdf
+      - run: typst compile --root . examples/example.typ /tmp/example.pdf

@@ -26,6 +26,8 @@ SENTENCES = [
     "Podle odst. 2 a např. kap. 4 je nutné dodržet postup dle obr. 7 a tab. 9.",
     "Rychlost 130 km/h při 50 Hz a výkon 2 kW se měřily po 15 min v laboratoři.",
     "Ceny vzrostly o 12,5 % na 1 250 Kč za kus, tj. o 150 Kč více než v r. 2023.",
+    "Podle § 234 odst. 4 písm. a) jde o věc sp. zn. 12 Nt 345/2026, č. j. "
+    "KRPA-12345-67/TČ-2026-000089, firmy VINITIS s.r.o. a zákona č. 89/2012 Sb.",
 ]
 
 WORDS = [

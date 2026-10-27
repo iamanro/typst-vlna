@@ -1,61 +1,43 @@
 # Benchmark and equivalence harness
 
-The compile-time figures in the main README come from these four scripts, and
+The compile-time figures in the main README come from these scripts, and
 `p95.svg` (plus the `p95.png` the main README embeds) is the chart they
 produce. Everything writes to `$VLNA_BENCH_DIR` (default `/tmp/vlna-bench`).
-
-## Set up
-
-```sh
-export VLNA_BENCH_DIR=/tmp/vlna-bench
-mkdir -p "$VLNA_BENCH_DIR/versions"
-
-# one worktree per version you want to compare
-for v in 0.1.1:d93be1a 0.2.0:v0.2.0 0.3.0:v0.3.0; do
-  git worktree add "$VLNA_BENCH_DIR/versions/${v%%:*}" "${v##*:}"
-done
-mkdir -p "$VLNA_BENCH_DIR/versions/optimised"
-cp lib.typ "$VLNA_BENCH_DIR/versions/optimised/"
-
-# 5740 paragraphs of Czech text where every rule group fires = 501 A4 pages
-python3 examples/benchmark/gen.py 5740 > "$VLNA_BENCH_DIR/body.typ"
-
-# the two `-raw` series: the same document with one raw block appended.
-# Run this AFTER the drivers below exist in versions/0.3.0 and versions/optimised.
-for v in 0.3.0 optimised; do
-  d="$VLNA_BENCH_DIR/versions/$v-raw"
-  mkdir -p "$d"
-  cp "$VLNA_BENCH_DIR/versions/$v/lib.typ" "$d/"
-  cp "$VLNA_BENCH_DIR/versions/$v/head-on.typ" "$d/"
-  { cat "$VLNA_BENCH_DIR/body.typ"; printf '\n`kód`\n'; } > "$d/body.typ"
-done
-```
-
-Each version directory needs `body.typ` plus two drivers: `head-on.typ`
-(`#show: apply-vlna` + `#include "body.typ"`) and `head-off.typ` (the same
-without the package), both with `#set text(lang: "cs", size: 10pt)`,
-`#set page(paper: "a4", margin: 2cm)` and `#set par(justify: true)`.
 
 ## Measure
 
 ```sh
-python3 examples/benchmark/bench.py 25 0.1.1 0.2.0 0.3.0 optimised 0.3.0-raw optimised-raw
-python3 examples/benchmark/chart.py   # writes p95.svg and p95.png
+python3 examples/benchmark/bench.py                          # every series, under a minute
+VLNA_BENCH_DIR=/tmp/vlna-bench python3 examples/benchmark/chart.py   # p95.svg + p95.png
 ```
 
-The committed figures come from exactly that command. With `$VLNA_BENCH_DIR`
-unset, `chart.py` reads the committed `results.json` beside it and redraws
-the published `p95.svg` and `p95.png`.
+`bench.py` is self-contained. It takes each version's `lib.typ` straight from
+git (`d93be1a` for 0.1.1, the `v0.x.0` tags, the working tree for 0.4.1),
+generates the document with `gen.py` (690 paragraphs, about 60 A4 pages,
+every rule group firing, the legal identifiers included), writes the drivers
+and compiles every series **in parallel**:
 
-`bench.py` runs the versions round-robin, so machine drift hits all of them
-equally, and pins every compile to the same 8 cores with the same thread
-count — unpinned wall time swings by seconds when a browser is busy, which
-is enough to reorder the versions.
+| Series | Driver |
+|---|---|
+| `no vlna` | the bare document, the reference for every factor |
+| `0.1.1` … `0.4.1` | `#show: apply-vlna` |
+| `0.4.1-legal` | `#show: apply-vlna.with(legal: true)` |
+| `*-raw` | the same, plus one inline `raw` element at the end |
+
+Each series gets its own physical cores (both SMT siblings, via `taskset`)
+and the same thread count, so the series do not take CPU from each other,
+and any background load hits all of them at the same moment. Each series
+compiles once to warm up, then repeats until a 40 s budget is spent (at
+least 3 runs). Pass labels to run a subset (`bench.py 0.4.0 0.4.1`); tune
+with `VLNA_BENCH_PARAGRAPHS` and `VLNA_BENCH_SECONDS`.
+
+With `$VLNA_BENCH_DIR` unset, `chart.py` reads the committed `results.json`
+beside it and redraws the published chart.
 
 ## Prove the typography did not change
 
 ```sh
-VLNA_OLD_LIB=$VLNA_BENCH_DIR/versions/0.3.0/lib.typ \
+VLNA_OLD_LIB=$VLNA_BENCH_DIR/versions/0.4.0/lib.typ \
   python3 examples/benchmark/equivalence.py
 ```
 

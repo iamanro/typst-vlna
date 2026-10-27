@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.1] – 2026-10-27
+
+### Added
+- **`legal: true`** (off by default): Czech legal identifiers stay in one
+  piece: case numbers (`12 Nt 345/2026`, `I. ÚS 2438/25`), reference
+  numbers (`KRPA-12345-67/TČ-2026-000089`), bank accounts, `89/2012 Sb.`,
+  `zák. práce`, and legal forms bound to the company name
+  (`VINITIS s.r.o.`). `sp. zn.`, `č. j.`, `ev. č.`, `bod`, `věta`/`věty`
+  bind to what follows (#3). Existing output is unchanged when it is off.
+- `tests/breaks.py` — line-break regression test: sweeps the page width so a
+  break lands in every gap of each glued unit and fails if one ever splits
+  (`python3 tests/breaks.py`, needs `typst` and `pdftotext`). Runs in CI on
+  every push and pull request, together with compiling the examples.
+
+### Changed
+- **Benchmark in under a minute.** `examples/benchmark/bench.py` is now
+  self-contained (versions from git, document and drivers generated) and
+  compiles every series in parallel, each pinned to its own physical core,
+  instead of 25 round-robin rounds on a 501-page document that took most of
+  an hour. On the new 63-page set: v0.4.1 1.54 s p95, same as v0.4.0
+  (1.53 s), 27% faster than v0.3.0 (2.12 s); `legal: true` adds 0.42 s.
+  The benchmark document now includes legal identifiers.
+- README redesigned: before/after image, feature and option tables,
+  collapsible configuration guide, refreshed performance figures.
+
+### Fixed
+- `písm.` and `čl.` bind to the following word, so statutory citations no
+  longer break as `§ 234 odst. 4 písm.` / `a)` (#2).
+
 ## [0.4.0] – 2026-09-02
 
 Performance release: identical typography, roughly a third off the compile
