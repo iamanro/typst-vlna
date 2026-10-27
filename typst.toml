@@ -8,4 +8,4 @@ description = "Czech non-breaking spaces (vlna): short words, titles before/afte
 repository = "https://github.com/iamanro/typst-vlna"
 keywords = ["czech", "typography", "non-breaking space", "vlna", "luavlna"]
 categories = ["utility"]
-exclude = ["examples", "tests"]
+exclude = ["examples", "tests", ".github"]

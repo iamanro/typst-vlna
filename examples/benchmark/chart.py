@@ -18,9 +18,12 @@ ORDER = [
     ("0.1.1", "v0.1.1", "#c2504a"),
     ("0.2.0", "v0.2.0", "#d99a2b"),
     ("0.3.0", "v0.3.0", "#4a7fc2"),
-    ("optimised", "v0.4.0", "#2e9e5b"),
+    ("0.4.0", "v0.4.0", "#2e9e5b"),
+    ("0.4.1", "v0.4.1", "#1f7a45"),
+    ("0.4.1-legal", "v0.4.1 · legal: true", "#7a4fb3"),
     ("0.3.0-raw", "v0.3.0 · same doc + a raw block", "#9dbbe0"),
-    ("optimised-raw", "v0.4.0 · same doc + a raw block", "#7fbf95"),
+    ("0.4.0-raw", "v0.4.0 · same doc + a raw block", "#7fbf95"),
+    ("0.4.1-raw", "v0.4.1 · same doc + a raw block", "#5aa878"),
 ]
 rows = [(lbl, name, col, DATA[lbl]) for lbl, name, col in ORDER if lbl in DATA]
 
@@ -36,10 +39,10 @@ svg = [
     f'<rect width="{W}" height="{H}" fill="#ffffff"/>',
     '<style>text{font-family:"DejaVu Sans",Arial,sans-serif}</style>',
     f'<text x="28" y="36" font-size="19" font-weight="700" fill="#1b1f24">'
-    f'vlna: compile time p95 — 501-page Czech document</text>',
+    f'vlna: compile time p95 — {RAW["pages"]}-page Czech document</text>',
     f'<text x="28" y="58" font-size="12.5" fill="#5b6570">'
-    f'typst 0.15.0 · {rows[0][3]["runs"]} interleaved runs per version after 2 '
-    f'warm-ups · pinned to 8 cores · all rule groups firing · lower is better</text>',
+    f'typst {RAW["typst"]} · all series compiled in parallel, {RAW["threads"]} pinned threads each · '
+    f'≥{min(r[3]["runs"] for r in rows)} runs after a warm-up · all rule groups firing · lower is better</text>',
 ]
 
 # vertical grid
@@ -83,20 +86,22 @@ for i, (lbl, name, col, r) in enumerate(rows):
                    f'fill="#8b949e">{stalls}/{r["runs"]} stalled</text>')
 
 y = PAD_T + 52 * len(rows) + 26
-opt, old = DATA.get("optimised"), DATA.get("0.3.0")
-if opt and old:
-    gain = (1 - opt["p95"] / old["p95"]) * 100
-    ovh = (opt["p95"] - base) / (old["p95"] - base)
+new, old, legal = DATA.get("0.4.1"), DATA.get("0.3.0"), DATA.get("0.4.1-legal")
+if new and old:
+    gain = (1 - new["p95"] / old["p95"]) * 100
+    ovh = (new["p95"] - base) / (old["p95"] - base)
     svg.append(
         f'<text x="28" y="{y + 12}" font-size="12.5" fill="#2e5b3d">'
-        f'v0.4.0 vs v0.3.0: {gain:.0f}% faster p95 '
-        f'({old["p95"]:.2f}s → {opt["p95"]:.2f}s).</text>'
+        f'v0.4.1 vs v0.3.0: {gain:.0f}% faster p95 '
+        f'({old["p95"]:.2f}s → {new["p95"]:.2f}s); package overhead above the bare document '
+        f'{old["p95"] - base:.2f}s → {new["p95"] - base:.2f}s ({ovh * 100:.0f}% of what it was).</text>'
+    )
+    legal_note = (
+        f'legal: true adds {legal["p95"] - new["p95"]:.2f}s p95. ' if legal else ""
     )
     svg.append(
         f'<text x="28" y="{y + 30}" font-size="12.5" fill="#5b6570">'
-        f'Package overhead above the bare document: '
-        f'{old["p95"] - base:.2f}s → {opt["p95"] - base:.2f}s '
-        f'({ovh * 100:.0f}% of what it was). White line = min–max spread, dark tick = p50.</text>'
+        f'{legal_note}White line = min–max spread, dark tick = p50.</text>'
     )
 svg.append("</svg>")
 out = ROOT / "p95.svg"

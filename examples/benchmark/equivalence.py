@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render each configuration with old (0.3.0) and new lib; compare rendered pages."""
+"""Render each configuration with the previous release (0.4.0) and the new lib; compare rendered pages."""
 import os
 import re
 import subprocess
@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 # Both libraries to compare, and a scratch directory for the renderings.
-OLD = Path(os.environ.get("VLNA_OLD_LIB", "/tmp/vlna-bench/versions/0.3.0/lib.typ"))
+OLD = Path(os.environ.get("VLNA_OLD_LIB", "/tmp/vlna-bench/versions/0.4.0/lib.typ"))
 NEW = Path(os.environ.get("VLNA_NEW_LIB", Path(__file__).resolve().parents[2] / "lib.typ"))
 WORK = Path(os.environ.get("VLNA_BENCH_DIR", "/tmp/vlna-bench")) / "verify"
 

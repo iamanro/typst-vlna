@@ -11,7 +11,19 @@
   bind to what follows (#3). Existing output is unchanged when it is off.
 - `tests/breaks.py` — line-break regression test: sweeps the page width so a
   break lands in every gap of each glued unit and fails if one ever splits
-  (`python3 tests/breaks.py`, needs `typst` and `pdftotext`).
+  (`python3 tests/breaks.py`, needs `typst` and `pdftotext`). Runs in CI on
+  every push and pull request, together with compiling the examples.
+
+### Changed
+- **Benchmark in under a minute.** `examples/benchmark/bench.py` is now
+  self-contained (versions from git, document and drivers generated) and
+  compiles every series in parallel, each pinned to its own physical core,
+  instead of 25 round-robin rounds on a 501-page document that took most of
+  an hour. On the new 63-page set: v0.4.1 1.54 s p95, same as v0.4.0
+  (1.53 s), 27% faster than v0.3.0 (2.12 s); `legal: true` adds 0.42 s.
+  The benchmark document now includes legal identifiers.
+- README redesigned: before/after image, feature and option tables,
+  collapsible configuration guide, refreshed performance figures.
 
 ### Fixed
 - `písm.` and `čl.` bind to the following word, so statutory citations no
