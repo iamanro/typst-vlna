@@ -23,6 +23,7 @@
   Firma a. s. i s. r. o., mn. č., př. n. l., T. G. M., PS PČR, FF UK, ČSN 01 6910, ÚJČ AV ČR, ČSN EN ISO 9001.
   Válka 1948–1989 skončila, pomlčka s mezerami – ta zůstává na konci řádku.
   Psali Fr. Daneš a M. Těšitelová, tzv. klikání. Tituly: prof. Ing. arch. Novák, Jan Novák, Ph.D., Ing. B. Novák.
+  Právní citace: § 234 odst. 4 písm. a), čl. 5 Listiny.
   Interakce: stálo to o 2 500 Kč víc, akce od 21. 6. 2024, výška u 19 °C, zápas o 5 : 3.
 ]
 
@@ -52,6 +53,10 @@
 #[
   #show: apply-vlna.with(short-words: (cs: "AIiVvOoUuSsZzKk"), lang: "cs", debug: true)
   Vynuceně česká sada: #text(lang: "en")[A trip with v word binds too.]
+]
+#[
+  #show: apply-vlna.with(legal: true, debug: true)
+  Právní identifikátory: věc sp. zn. 12 Nt 345/2026, 4 Tdo 123/2025, 2 KZV-12/2026, VZV 23/2026-22, nález I. ÚS 2438/25 a Pl. ÚS 45/04, srov. č. j. KRPA-12345-67/TČ-2026-000089. Účet 19-1234567890/0100, firma VINITIS s.r.o. a ABC a. s., zákon č. 89/2012 Sb., § 52 zák. práce, o. s. ř., § 2910 věty první, písm. a) bodu 3.
 ]
 
 = 4 — Zákeřné vstupy

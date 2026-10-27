@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.1] – 2026-10-27
+
+### Added
+- **`legal: true`** (off by default): Czech legal identifiers stay in one
+  piece: case numbers (`12 Nt 345/2026`, `I. ÚS 2438/25`), reference
+  numbers (`KRPA-12345-67/TČ-2026-000089`), bank accounts, `89/2012 Sb.`,
+  `zák. práce`, and legal forms bound to the company name
+  (`VINITIS s.r.o.`). `sp. zn.`, `č. j.`, `ev. č.`, `bod`, `věta`/`věty`
+  bind to what follows (#3). Existing output is unchanged when it is off.
+- `tests/breaks.py` — line-break regression test: sweeps the page width so a
+  break lands in every gap of each glued unit and fails if one ever splits
+  (`python3 tests/breaks.py`, needs `typst` and `pdftotext`).
+
+### Fixed
+- `písm.` and `čl.` bind to the following word, so statutory citations no
+  longer break as `§ 234 odst. 4 písm.` / `a)` (#2).
+
 ## [0.4.0] – 2026-09-02
 
 Performance release: identical typography, roughly a third off the compile

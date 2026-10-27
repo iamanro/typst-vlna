@@ -14,7 +14,7 @@ has its own on/off switch.
 ## Usage
 
 ```typ
-#import "@preview/vlna:0.4.0": apply-vlna
+#import "@preview/vlna:0.4.1": apply-vlna
 #show: apply-vlna
 ```
 
@@ -76,6 +76,7 @@ Every rule group can be switched off (or on) independently:
 | `abbreviations` | `true` | `a. s.`, `př. n. l.`, `PS PČR`, `ČSN 01 6910` |
 | `dashes` | `true` | `slovo –` at line end; `1948–1989` unbroken |
 | `links` | `true` | ÚJČ break points inside `link()` addresses |
+| `legal` | `false` | Czech legal identifiers (see below) |
 | `lang` | `auto` | force one language's set (see per-language sets) |
 | `debug` | `false` | outline every glued block |
 
@@ -90,6 +91,30 @@ Notes:
 - `links` inserts zero-width spaces (U+200B) into the *displayed* address —
   the technique the ÚJČ note itself recommends. The link target (`dest`)
   is untouched and stays clickable.
+
+### Legal texts (`legal: true`)
+
+```typ
+#show: apply-vlna.with(legal: true)
+```
+
+Off by default. Keeps identifiers from Czech court filings and statutes in
+one piece:
+
+- case numbers: `12 Nt 345/2026`, `4 Tdo 123/2025`, `2 KZV-12/2026`,
+  `VZV 23/2026-22`; Constitutional Court: `I. ÚS 2438/25`, `Pl. ÚS 45/04`;
+- reference numbers and bank accounts: `KRPA-12345-67/TČ-2026-000089`,
+  `19-1234567890/0100`;
+- `89/2012 Sb.`, `2/1993 Sb. m. s.`; `zák. práce`, `tr. zák.` (`o. s. ř.`,
+  `tr. ř.`, `o. z.` are already covered by `abbreviations`);
+- legal forms bound to the company name, spaced or as registered:
+  `VINITIS s.r.o.`, `ABC a.s.`, `XY v.o.s.`;
+- `sp. zn.`, `č. j.`, `ev. č.`, `bod`, `bodu`, `věta`, `věty` bound to what
+  follows: `sp. zn. 12 Nt 345/2026`, `věty první`.
+
+The identifier is a block of its own inside `č. j. KRPA-…`. When the whole
+run does not fit on a line, the break falls after `č. j.`, never inside the
+identifier.
 
 ### Which short words are bound
 
@@ -155,7 +180,7 @@ A global `show` rule cannot be cancelled from inside the document, so the
 package provides state-based switches:
 
 ```typ
-#import "@preview/vlna:0.4.0": apply-vlna, vlna-on, vlna-off, vlna-debug-on, vlna-debug-off
+#import "@preview/vlna:0.4.1": apply-vlna, vlna-on, vlna-off, vlna-debug-on, vlna-debug-off
 #show: apply-vlna
 
 Tady se váže. #vlna-off() Tady ne. #vlna-on() A tady zase.
